@@ -20,15 +20,12 @@ class MikeExample extends MonocleSuite {
 
 
   test("Json Prism") {
-    val actual = jStr("hello")
-    println(actual)
-    actual should be ("fred")
+    //jStr("hello") should be ("fred")
 
-    val actual2 = jStr.getOption(JStr("Hello"))
-    println(actual2)
+    jStr.getOption(JStr("Hello")) should be (Some("Hello"))
   }
 
-  test("traversal fancy") {
+  test("my own traversal from example") {
     import monocle.Traversal
     import scalaz.Applicative
     import scalaz.std.map._
@@ -47,8 +44,39 @@ class MikeExample extends MonocleSuite {
 
     val filterEven = filterKey[Int, String](key => key % 2 == 0)
 
-    filterEven.modify(_.toUpperCase)(m) should be ("fred")
+    filterEven.modify(_.toUpperCase)(m) should be (Map(1 -> "one", 2 -> "TWO", 3 -> "three", 4 -> "FOUR"))
+  }
 
+  test("test Traversal modifyGetAll law") {
+    import scalaz.std.list._ // to get the Traverse instance for List
+
+    def modifyGetAllLaw[S, A](t: Traversal[S, A], s: S, f: A => A): Boolean = {
+      val l = t.getAll(t.modify(f)(s))
+      val r = t.getAll(s).map(f)
+      println(l)
+      println(r)
+      l == r
+    }
+
+    val eachL = Traversal.fromTraverse[List, Int]
+
+    modifyGetAllLaw(eachL, List(1,2,3), (x: Int) => x + 1) should be (true)
+  }
+
+  test("test Traversal composeModify law") {
+    import scalaz.std.list._ // to get the Traverse instance for List
+    def composedModifyLaw[S, A](t: Traversal[S, A], s: S, f: A => A, g: A => A): Boolean = {
+      val l = t.modify(g)(t.modify(f)(s))
+      val r = t.modify(g compose f)(s)
+      println(l)
+      println(r)
+      l == t
+      //t.modify(g)(t.modify(f)(s)) == t.modify(g compose f)(s)
+    }
+
+    val eachL = Traversal.fromTraverse[List, Int]
+
+    composedModifyLaw(eachL, List(1,2,3), (x: Int) => x + 1, (y: Int) => y + 2) == (true)
 
   }
 }

@@ -175,12 +175,6 @@ class JsonExample extends MonocleSuite {
       PhoneStr("443-678-1249"),
       PhoneStr("443-336-9118"),
       PhoneStr("443-431-1253")
-
-//      PhoneStr("333-444-5555"),
-//      PhoneStr("804-259-9559"),
-//      PhoneStr("443-678-1249"),
-//      PhoneStr("443-336-9118"),
-//      PhoneStr("443-431-1253")
     ))))))
 
   }

@@ -87,7 +87,7 @@ class JsonExample extends MonocleSuite {
     case class Resident(firstName: String, lastName: String, address: Address)
     case class Address(strNumber: Int, streetName: String, phones: List[Phone])
     sealed trait Phone
-    case class PhoneInt(areaCode: Int, firstThree: Int, lastFour: Int) extends Phone
+    case class PhoneNum(phone: Long) extends Phone
     case class PhoneStr(phone: String) extends Phone
 
     case class AddressStr(strNumber: Int, streetName: String, phones: List[PhoneStr])
@@ -100,47 +100,88 @@ class JsonExample extends MonocleSuite {
 
     val trav = _resident composeTraversal _residentT composeLens _address composeLens _phones composeTraversal _phonesT
 
-    val changeAreaCodeIf540 = (phone: PhoneInt) => phone match { //Notice that this is a total function
-      case phone if phone.areaCode == 540 => PhoneInt(areaCode = 443, firstThree = phone.firstThree, lastFour = phone.lastFour)
-      case phone if phone.areaCode == 757 => PhoneInt(areaCode = 804, firstThree = phone.firstThree, lastFour = phone.lastFour)
+    val changeAreaCodeIf540 = (phone: PhoneNum) => phone match { //Notice that this is a total function
+      case phone if phone.phone / 10000000 == 540 => PhoneNum(5401111111l)
+      case phone if phone.phone / 10000000 == 757 => PhoneNum(8041111111l)
       case _ => phone
     }
 
     val winchester = Town(residents = List(Resident("mike", "long", Address(103, "Leavenworth Court", phones = List(
-      PhoneInt(333, 444, 5555),
-      PhoneInt(757, 259, 9559),
-      PhoneInt(540, 678, 1249),
-      PhoneInt(540, 336, 9118),
-      PhoneInt(540, 431, 1253)
+      PhoneNum(3334445555l),
+      PhoneNum(7572599559l),
+      PhoneNum(5406781249l),
+      PhoneNum(5403369118l),
+      PhoneNum(5404311253l),
+      PhoneStr("333-444-5555"),
+      PhoneStr("757-259-9559"),
+      PhoneStr("540-678-1249"),
+      PhoneStr("540-336-9118"),
+      PhoneStr("540-431-1253")
     )))))
 
-    import monocle.Iso
+    //import monocle.Iso
     //    val personToTuple = Iso[Person, (String, Int)](p => (p.name, p.age)) { case (name, age) => Person(name, age) }
-    val phoneToStrPhone = Iso[PhoneInt, PhoneStr](p => PhoneStr(s"${p.areaCode} - ${p.firstThree} - ${p.lastFour}")) {
-      case PhoneStr(p) => PhoneInt(areaCode = p.substring(0, 3).toInt, firstThree = p.substring(4, 3).toInt, lastFour = p.substring(8, 4).toInt)
+    //val phoneToStrPhone = Iso[PhoneNum, PhoneStr](p => PhoneStr(s"${p.areaCode} - ${p.firstThree} - ${p.lastFour}")) {
+    //  case PhoneStr(p) => PhoneNum(areaCode = p.substring(0, 3).toInt, firstThree = p.substring(4, 3).toInt, lastFour = p.substring(8, 4).toInt)
+    // }
+
+    //val jsString = Prism[Json, String] { case JsString(s) => Some(s); case _ => None }(JsString.apply)
+    //val jsNumber = Prism[Json, Int] { case JsNumber(n) => Some(n); case _ => None }(JsNumber.apply)
+
+    val phoneStr1 = Prism[Phone, String] {
+      case PhoneStr(phone) if phone.substring(0, 3) == "540" => Some(s"443-${phone.substring(4)}") //=> Some(phone)
+      case PhoneStr(phone) if phone.substring(0, 3) == "757" => Some(s"804-${phone.substring(4)}") //=> Some(phone)
+      case _ => {
+        println("phoneStr")
+        None
+      }
+    }(PhoneStr.apply)
+
+    val phoneNum1 = Prism[Phone, Long] {
+      case PhoneNum(phone) if phone.toString.substring(0, 3) == "540" => Some(s"443${phone.toString.substring(4)}".toLong) //=> Some(phone)
+      case PhoneNum(phone) if phone.toString.substring(0, 3) == "757" => Some(s"804${phone.toString.substring(4)}".toLong) //=> Some(phone)
+      //case PhoneNum(number) => Some(number)
+      case _ => {
+        println("phoneNum")
+        None
+      }
+    }(PhoneNum.apply)
+
+    val trav2 = _resident composeTraversal _residentT composeLens _address composeLens _phones composeTraversal _phonesT //composePrism phoneNum1 //Int1 //composePrism phoneStr1// phoneToStrPhone
+
+    val changeAreaCodeIf540Num = (phone: Long) => phone match { //Notice that this is a total function
+      case phone if phone / 10000000 == 540 => 4431111111l
+      case phone if phone / 10000000 == 757 => 8041111111l
+      case _ => phone
     }
 
-
-    val trav2 = _resident composeTraversal _residentT composeLens _address composeLens _phones composeTraversal _phonesT// composeIso phoneToStrPhone
-
-
     val changeAreaCodeIf540Str = (phone: Phone) => phone match { //Notice that this is a total function
-      case PhoneStr(phone) if phone.substring(0, 3) == "540 "=> PhoneStr(s"443-${phone.substring(3)}")
-      case PhoneStr(phone) if phone.substring(0, 3) == "757"=> PhoneStr(s"804-${phone.substring(3)}")
-      case PhoneInt(areaCode, firstThree, lastFour) if areaCode == 540 => PhoneInt(areaCode = 443, firstThree = firstThree, lastFour = lastFour)
-      case PhoneInt(areaCode, firstThree, lastFour) if areaCode == 757 => PhoneInt(areaCode = 804, firstThree = firstThree, lastFour = lastFour)
-      case _ => phone
+      case PhoneStr(phone) if phone.substring(0, 3) == "540" => PhoneStr(s"443-${phone.substring(4)}")
+      case PhoneStr(phone) if phone.substring(0, 3) == "757" => PhoneStr(s"804-${phone.substring(4)}")
+      case PhoneNum(phone) if phone.toString.substring(0, 3) == "540" => PhoneNum(s"443${phone.toString.substring(3)}".toLong) //=> Some(phone)
+      case PhoneNum(phone) if phone.toString.substring(0, 3) == "757" => PhoneNum(s"804${phone.toString.substring(3)}".toLong)//=> Some(phone)
+      case x:Phone => x
     }
 
     val wincWithNewPhones = trav2.modify(changeAreaCodeIf540Str)(winchester)
     wincWithNewPhones shouldBe (Town(residents = List(Resident("mike", "long", Address(103, "Leavenworth Court", phones = List(
+      PhoneNum(3334445555l),
+      PhoneNum(8042599559l),
+      PhoneNum(4436781249l),
+      PhoneNum(4433369118l),
+      PhoneNum(4434311253l),
       PhoneStr("333-444-5555"),
       PhoneStr("804-259-9559"),
       PhoneStr("443-678-1249"),
       PhoneStr("443-336-9118"),
       PhoneStr("443-431-1253")
-    ))))))
 
+//      PhoneStr("333-444-5555"),
+//      PhoneStr("804-259-9559"),
+//      PhoneStr("443-678-1249"),
+//      PhoneStr("443-336-9118"),
+//      PhoneStr("443-431-1253")
+    ))))))
 
   }
 
